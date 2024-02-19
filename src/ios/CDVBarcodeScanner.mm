@@ -499,11 +499,11 @@ parentViewController:(UIViewController*)parentViewController
     // set focus params if available to improve focusing
     [device lockForConfiguration:&error];
     if (error == nil) {
-        if([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
-            [device setFocusMode:AVCaptureFocusModeContinuousAutoFocus];
+        if([device isFocusModeSupported:AVCaptureFocusModeLocked]) {
+            [device setFocusMode:AVCaptureFocusModeLocked];
         }
         if([device isAutoFocusRangeRestrictionSupported]) {
-            [device setAutoFocusRangeRestriction:AVCaptureAutoFocusRangeRestrictionNear];
+            [device setAutoFocusRangeRestriction:AVCaptureAutoFocusRangeRestrictionNone];
         }
     }
     [device unlockForConfiguration];
