@@ -9,6 +9,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <AssetsLibrary/AssetsLibrary.h>
 #import <Cordova/CDVPlugin.h>
+#import <UIKit/UIKit.h>
 
 
 //------------------------------------------------------------------------------
@@ -112,6 +113,7 @@
 - (IBAction)cancelButtonPressed:(id)sender;
 - (IBAction)flipCameraButtonPressed:(id)sender;
 - (IBAction)torchButtonPressed:(id)sender;
+- (IBAction)toggleFocusMode:(id)sender;
 
 @end
 
@@ -119,6 +121,8 @@
 // plugin class
 //------------------------------------------------------------------------------
 @implementation CDVBarcodeScanner
+
+AVCaptureFocusMode currentFocusMode;
 
 //--------------------------------------------------------------------------
 - (NSString*)isScanNotPossible {
@@ -474,6 +478,55 @@ parentViewController:(UIViewController*)parentViewController
   [device unlockForConfiguration];
 }
 
+- (void)toggleFocusMode {
+    AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+    NSError *error = nil;
+    
+    NSLog(@"Focus mode before: %ld", (long)currentFocusMode);
+    if ([device lockForConfiguration:&error]) {
+        if (error == nil) {
+           if (currentFocusMode == AVCaptureFocusModeAutoFocus) {
+               if ([device isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus]) {
+                   [device setFocusMode:AVCaptureFocusModeContinuousAutoFocus];
+                   currentFocusMode = AVCaptureFocusModeContinuousAutoFocus;
+               }
+           } else if (currentFocusMode == AVCaptureFocusModeContinuousAutoFocus) {
+               if ([device isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
+                   [device setFocusMode:AVCaptureFocusModeAutoFocus];
+                   currentFocusMode = AVCaptureFocusModeAutoFocus;
+               }
+           }
+            
+            NSString *message = (currentFocusMode == AVCaptureFocusModeContinuousAutoFocus) ? @"Autofocus enabled" : @"Autofocus disabled";
+            UIView *toastView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
+            toastView.backgroundColor = [UIColor blackColor];
+            toastView.alpha = 0.7;
+            toastView.layer.cornerRadius = 10;
+
+            UILabel *toastLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
+            toastLabel.text = message;
+            toastLabel.textColor = [UIColor whiteColor];
+            toastLabel.textAlignment = NSTextAlignmentCenter;
+            [toastView addSubview:toastLabel];
+
+            toastView.center = self.viewController.view.center;
+            [self.viewController.view addSubview:toastView];
+
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [toastView removeFromSuperview];
+            });
+        } else {
+            // Handle the error
+            NSLog(@"Focus Error: %@", error);
+        }
+        [device unlockForConfiguration];
+        NSLog(@"Focus mode set to: %ld", (long)currentFocusMode);
+    } else {
+        // Handle the error
+        NSLog(@"Error: %@", error);
+    }
+}
+
 //--------------------------------------------------------------------------
 - (NSString*)setUpCaptureSession {
     NSError* error = nil;
@@ -499,11 +552,12 @@ parentViewController:(UIViewController*)parentViewController
     // set focus params if available to improve focusing
     [device lockForConfiguration:&error];
     if (error == nil) {
-        if([device isFocusModeSupported:AVCaptureFocusModeLocked]) {
-            [device setFocusMode:AVCaptureFocusModeLocked];
+        if([device isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
+            [device setFocusMode:AVCaptureFocusModeAutoFocus];
+            currentFocusMode = AVCaptureFocusModeAutoFocus;
         }
         if([device isAutoFocusRangeRestrictionSupported]) {
-            [device setAutoFocusRangeRestriction:AVCaptureAutoFocusRangeRestrictionNone];
+            [device setAutoFocusRangeRestriction:AVCaptureAutoFocusRangeRestrictionNear];
         }
     }
     [device unlockForConfiguration];
@@ -830,6 +884,11 @@ parentViewController:(UIViewController*)parentViewController
   [self.processor performSelector:@selector(toggleTorch) withObject:nil afterDelay:0];
 }
 
+- (IBAction)toggleFocusMode:(id)sender
+{
+  [self.processor performSelector:@selector(toggleFocusMode) withObject:nil afterDelay:0];
+}
+
 //--------------------------------------------------------------------------
 - (UIView *)buildOverlayViewFromXib
 {
@@ -889,6 +948,12 @@ parentViewController:(UIViewController*)parentViewController
                        target:(id)self
                        action:@selector(flipCameraButtonPressed:)
                        ];
+    
+    id focusMode = [[UIBarButtonItem alloc]
+                    initWithBarButtonSystemItem:UIBarButtonSystemItemCamera
+                    target:(id)self
+                    action:@selector(toggleFocusMode:)
+                    ];
 
     NSMutableArray *items;
 
@@ -900,15 +965,15 @@ parentViewController:(UIViewController*)parentViewController
                         ];
 
     if (_processor.isShowFlipCameraButton) {
-      items = [NSMutableArray arrayWithObjects:flexSpace, cancelButton, flexSpace, flipCamera, shutterButton, nil];
+      items = [NSMutableArray arrayWithObjects:flexSpace, cancelButton, flexSpace, flipCamera, focusMode, shutterButton, nil];
     } else {
-      items = [NSMutableArray arrayWithObjects:flexSpace, cancelButton, flexSpace, shutterButton, nil];
+      items = [NSMutableArray arrayWithObjects:flexSpace, cancelButton, flexSpace, focusMode, shutterButton, nil];
     }
 #else
     if (_processor.isShowFlipCameraButton) {
-      items = [@[flexSpace, cancelButton, flexSpace, flipCamera] mutableCopy];
+      items = [@[flexSpace, cancelButton, flexSpace, focusMode, flipCamera] mutableCopy];
     } else {
-      items = [@[flexSpace, cancelButton, flexSpace] mutableCopy];
+      items = [@[flexSpace, cancelButton, flexSpace, focusMode] mutableCopy];
     }
 #endif
 
@@ -928,8 +993,9 @@ parentViewController:(UIViewController*)parentViewController
                            ];
 
       [items insertObject:torchButton atIndex:0];
+      }
     }
-  }
+
     self.toolbar.items = items;
     [overlayView addSubview: self.toolbar];
 
