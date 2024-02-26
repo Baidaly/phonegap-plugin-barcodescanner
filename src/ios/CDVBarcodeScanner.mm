@@ -67,7 +67,7 @@
 @property (nonatomic)         BOOL                        isFlipped;
 @property (nonatomic)         BOOL                        isTransitionAnimated;
 @property (nonatomic)         BOOL                        isSuccessBeepEnabled;
-
+@property (nonatomic)         BOOL                        isAutoFocusEnabled;
 
 - (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback parentViewController:(UIViewController*)parentViewController alterateOverlayXib:(NSString *)alternateXib;
 - (void)scanBarcode;
@@ -175,6 +175,7 @@ AVCaptureFocusMode currentFocusMode;
     BOOL showTorchButton = [options[@"showTorchButton"] boolValue];
     BOOL disableAnimations = [options[@"disableAnimations"] boolValue];
     BOOL disableSuccessBeep = [options[@"disableSuccessBeep"] boolValue];
+    BOOL autoFocusEnabled = [options[@"autoFocusEnabled"] boolValue];
 
     // We allow the user to define an alternate xib file for loading the overlay.
     NSString *overlayXib = options[@"overlayXib"];
@@ -212,6 +213,15 @@ AVCaptureFocusMode currentFocusMode;
     if (showTorchButton) {
       processor.isShowTorchButton = true;
     }
+    
+    if (autoFocusEnabled) {
+        processor.isAutoFocusEnabled = true;
+        currentFocusMode = AVCaptureFocusModeContinuousAutoFocus;
+    } else {
+        processor.isAutoFocusEnabled = false;
+        currentFocusMode = AVCaptureFocusModeAutoFocus;
+    }
+    
 
     processor.isSuccessBeepEnabled = !disableSuccessBeep;
 
@@ -553,8 +563,8 @@ parentViewController:(UIViewController*)parentViewController
     [device lockForConfiguration:&error];
     if (error == nil) {
         if([device isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
-            [device setFocusMode:AVCaptureFocusModeAutoFocus];
-            currentFocusMode = AVCaptureFocusModeAutoFocus;
+            [device setFocusMode:currentFocusMode];
+            // currentFocusMode = AVCaptureFocusModeAutoFocus;
         }
         if([device isAutoFocusRangeRestrictionSupported]) {
             [device setAutoFocusRangeRestriction:AVCaptureAutoFocusRangeRestrictionNear];
@@ -949,12 +959,6 @@ parentViewController:(UIViewController*)parentViewController
                        action:@selector(flipCameraButtonPressed:)
                        ];
     
-    id focusMode = [[UIBarButtonItem alloc]
-                    initWithBarButtonSystemItem:UIBarButtonSystemItemCamera
-                    target:(id)self
-                    action:@selector(toggleFocusMode:)
-                    ];
-
     NSMutableArray *items;
 
 #if USE_SHUTTER
@@ -971,9 +975,9 @@ parentViewController:(UIViewController*)parentViewController
     }
 #else
     if (_processor.isShowFlipCameraButton) {
-      items = [@[flexSpace, cancelButton, flexSpace, focusMode, flipCamera] mutableCopy];
+      items = [@[flexSpace, cancelButton, flexSpace, flipCamera] mutableCopy];
     } else {
-      items = [@[flexSpace, cancelButton, flexSpace, focusMode] mutableCopy];
+      items = [@[flexSpace, cancelButton, flexSpace] mutableCopy];
     }
 #endif
 
@@ -994,6 +998,22 @@ parentViewController:(UIViewController*)parentViewController
 
       [items insertObject:torchButton atIndex:0];
       }
+    }
+    
+    if (!_processor.isFrontCamera) {
+        NSURL *bundleURL = [[NSBundle mainBundle] URLForResource:@"CDVBarcodeScanner" withExtension:@"bundle"];
+        NSBundle *bundle = [NSBundle bundleWithURL:bundleURL];
+        NSString *imagePath = [bundle pathForResource:@"focus" ofType:@"png"];
+        UIImage *image = [UIImage imageWithContentsOfFile:imagePath];
+      
+        id focusModeButton = [[UIBarButtonItem alloc]
+                              initWithImage:image
+                              style:UIBarButtonItemStylePlain
+                              target:(id)self
+                              action:@selector(toggleFocusMode:)
+                            ];
+
+        [items insertObject:focusModeButton atIndex:0];
     }
 
     self.toolbar.items = items;
