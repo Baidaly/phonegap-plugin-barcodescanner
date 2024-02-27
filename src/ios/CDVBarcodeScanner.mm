@@ -213,7 +213,7 @@ AVCaptureFocusMode currentFocusMode;
     if (showTorchButton) {
       processor.isShowTorchButton = true;
     }
-    
+
     if (autoFocusEnabled) {
         processor.isAutoFocusEnabled = true;
         currentFocusMode = AVCaptureFocusModeContinuousAutoFocus;
@@ -221,7 +221,7 @@ AVCaptureFocusMode currentFocusMode;
         processor.isAutoFocusEnabled = false;
         currentFocusMode = AVCaptureFocusModeAutoFocus;
     }
-    
+
 
     processor.isSuccessBeepEnabled = !disableSuccessBeep;
 
@@ -271,6 +271,7 @@ AVCaptureFocusMode currentFocusMode;
     resultDict[@"text"] = scannedText;
     resultDict[@"format"] = format;
     resultDict[@"cancelled"] = cancelledNumber;
+    resultDict[@"autoFocusEnabled"] = currentFocusMode == AVCaptureFocusModeContinuousAutoFocus ? @"true" : @"false";
 
     CDVPluginResult* result = [CDVPluginResult
                                resultWithStatus: CDVCommandStatus_OK
@@ -491,7 +492,7 @@ parentViewController:(UIViewController*)parentViewController
 - (void)toggleFocusMode {
     AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
     NSError *error = nil;
-    
+
     NSLog(@"Focus mode before: %ld", (long)currentFocusMode);
     if ([device lockForConfiguration:&error]) {
         if (error == nil) {
@@ -506,7 +507,7 @@ parentViewController:(UIViewController*)parentViewController
                    currentFocusMode = AVCaptureFocusModeAutoFocus;
                }
            }
-            
+
             NSString *message = (currentFocusMode == AVCaptureFocusModeContinuousAutoFocus) ? @"Autofocus enabled" : @"Autofocus disabled";
             UIView *toastView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 200, 50)];
             toastView.backgroundColor = [UIColor blackColor];
@@ -910,14 +911,14 @@ parentViewController:(UIViewController*)parentViewController
         return nil;
     }
 
-	self.overlayView.autoresizesSubviews = YES;
+    self.overlayView.autoresizesSubviews = YES;
     self.overlayView.autoresizingMask    = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.overlayView.opaque              = NO;
 
-	CGRect bounds = self.view.bounds;
+    CGRect bounds = self.view.bounds;
     bounds = CGRectMake(0, 0, bounds.size.width, bounds.size.height);
 
-	[self.overlayView setFrame:bounds];
+    [self.overlayView setFrame:bounds];
 
     return self.overlayView;
 }
@@ -958,7 +959,7 @@ parentViewController:(UIViewController*)parentViewController
                        target:(id)self
                        action:@selector(flipCameraButtonPressed:)
                        ];
-    
+
     NSMutableArray *items;
 
 #if USE_SHUTTER
@@ -999,13 +1000,13 @@ parentViewController:(UIViewController*)parentViewController
       [items insertObject:torchButton atIndex:0];
       }
     }
-    
+
     if (!_processor.isFrontCamera) {
         NSURL *bundleURL = [[NSBundle mainBundle] URLForResource:@"CDVBarcodeScanner" withExtension:@"bundle"];
         NSBundle *bundle = [NSBundle bundleWithURL:bundleURL];
         NSString *imagePath = [bundle pathForResource:@"focus" ofType:@"png"];
         UIImage *image = [UIImage imageWithContentsOfFile:imagePath];
-      
+
         id focusModeButton = [[UIBarButtonItem alloc]
                               initWithImage:image
                               style:UIBarButtonItemStylePlain
